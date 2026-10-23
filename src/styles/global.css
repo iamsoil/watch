@@ -169,6 +169,7 @@ h1, h2, h3, h4, button, input, .mono { font-family: var(--font-head); }
 
 .view { display: none; min-height: 100dvh; flex-direction: column; }
 .view.active { display: flex; }
+#view-room.active { height: 100dvh; overflow: hidden; }
 
 .home.hero-pad { align-items: stretch; }
 .hero {
@@ -248,9 +249,10 @@ h1, h2, h3, h4, button, input, .mono { font-family: var(--font-head); }
   flex: 1;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 378px;
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
 }
-.stage-cell { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.stage-cell { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
 .stage-row { flex: 1; display: flex; min-height: 0; align-items: stretch; }
 .player-shell {
   position: relative;
@@ -439,7 +441,7 @@ body[data-role='guest'] .host-only { display: none !important; }
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 140px;
+  min-height: 0;
 }
 .msg {
   display: flex;
@@ -874,8 +876,8 @@ body.fs-mode .fs-hud:not(.open) { display: none; }
   .side-head { letter-spacing: 0.18em; }
 }
 @media (max-width: 780px) {
-  .room-grid { grid-template-columns: minmax(0, 1fr); }
-  .side { border-left: none; border-top: 1px solid var(--line); max-height: 68dvh; }
+  .room-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .side { border-left: none; border-top: 1px solid var(--line); min-height: 0; max-height: none; }
   .stage-row { flex: none; }
   .player-shell { width: 100%; }
   .hero { padding-top: 44px; }

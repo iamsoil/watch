@@ -454,6 +454,7 @@ function toggleFs() {
 function onFsChange() {
   const active = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
   document.body.classList.toggle('fs-mode', active);
+  closeAllModals();
   const sidebar = byId('sidebar');
   const hud = byId('fs-hud');
   const grid = document.querySelector('.room-grid')!;
