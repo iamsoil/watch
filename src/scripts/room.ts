@@ -393,8 +393,13 @@ export function wireControls() {
     }
   });
   byId('fs-fab').addEventListener('click', () => {
-    const hud = byId('fs-hud');
-    hud.classList.toggle('open');
+    byId('fs-hud').classList.add('open');
+    byId('fs-fab').classList.add('hidden');
+  });
+  byId('fs-close').addEventListener('click', (e) => {
+    e.stopPropagation();
+    byId('fs-hud').classList.remove('open');
+    byId('fs-fab').classList.remove('hidden');
   });
   for (const b of document.querySelectorAll('[data-close]')) {
     b.addEventListener('click', () => closeModal((b as HTMLElement).dataset.close!));
@@ -463,6 +468,7 @@ function onFsChange() {
     hud.classList.remove('open');
   } else {
     hud.classList.remove('open');
+    byId('fs-fab').classList.remove('hidden');
     grid.appendChild(sidebar);
   }
 }
