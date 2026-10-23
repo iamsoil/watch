@@ -12,6 +12,7 @@
     "build": "astro build",
     "serve": "npm run build && node server/server.js",
     "start": "node server/server.js",
+    "gen:gifs": "node scripts/make-fallback-gifs.mjs",
     "smoke": "node scripts/smoke.mjs",
     "typecheck": "tsc -p tsconfig.json"
   },

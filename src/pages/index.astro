@@ -1,0 +1,185 @@
+---
+import '../styles/global.css';
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WATCH// — paste a link. watch together.</title>
+    <meta name="description" content="Private YouTube watch rooms with twitch-style live chat, GIFs and reactions. Synchronized playback, no accounts." />
+    <meta name="theme-color" content="#07070c" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="conn-banner" class="conn-banner">CONNECTING…</div>
+    <div id="toasts"></div>
+
+    <section id="view-home" class="view hero-pad">
+      <header class="topbar">
+        <a class="brand" href="/">WATCH<span class="slashes">//</span><span class="beta">BETA</span></a>
+        <span class="grow"></span>
+        <span class="pill"><span class="dot"></span> private rooms · no account</span>
+      </header>
+      <div class="hero">
+        <h1>Paste a video.<br />Everyone hits <span class="flash">play</span> together.</h1>
+        <p class="tagline">A private room, a six-character code, and a live chat layer over the player.</p>
+        <div class="cards">
+          <form id="create-form" class="card">
+            <span class="label"><span class="dots">01</span>&nbsp; START A ROOM</span>
+            <label class="label" for="home-name">Your name</label>
+            <input id="home-name" class="field" maxlength="24" placeholder="e.g. Mia" autocomplete="nickname" />
+            <button class="btn solid big" type="submit">Create private room&nbsp;&nbsp;→</button>
+            <p class="how">You become the host: you control playback, can mute or remove anyone, and you pick the videos.</p>
+          </form>
+          <form id="join-form" class="card">
+            <span class="label"><span class="dots">02</span>&nbsp; HAVE A CODE?</span>
+            <label class="label" for="home-code">Room code</label>
+            <input id="home-code" class="field" maxlength="6" placeholder="# A7K2P9" autocomplete="off" spellcheck="false" style="text-transform:uppercase" />
+            <button class="btn big" type="submit">Join room</button>
+            <p class="how">Got a link instead? Just open it — the code rides inside the URL.</p>
+          </form>
+        </div>
+        <div class="foot-note">
+          <span>Up to 8 viewers</span>
+          <span>Synchronized playback</span>
+          <span>Live chat · GIFs · reactions</span>
+          <span>Rooms live in memory — nothing stored</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-gate" class="view centered-view">
+      <form id="gate-form" class="gate-card">
+        <span class="stamp" id="gate-stamp">JOINING ROOM #—</span>
+        <h2 id="gate-title">Pick a display name</h2>
+        <p class="sub" id="gate-sub">No account needed — the name shows in chat and in the viewer list.</p>
+        <label class="label" for="gate-name">Display name</label>
+        <input id="gate-name" class="field" maxlength="24" placeholder="Your name" autocomplete="nickname" />
+        <div class="row">
+          <button id="gate-go" class="btn solid big" type="submit" style="flex:1">Enter room</button>
+        </div>
+        <a class="back" href="/">← pick a different door</a>
+      </form>
+    </section>
+
+    <section id="view-room" class="view">
+      <header class="topbar" id="room-topbar">
+        <a class="brand" href="/">WATCH<span class="slashes">//</span><span class="beta">BETA</span></a>
+        <button class="code-chip" id="code-chip" title="Copy room code & link" type="button">
+          <span class="code-lbl">ROOM&nbsp;</span><b id="room-code-b">——————</b>
+        </button>
+        <span class="grow"></span>
+        <span class="pill" id="watch-pill"><span class="dot"></span><b id="watch-n">1</b>&nbsp;watching</span>
+        <button id="topbar-share" class="btn" type="button">Share</button>
+      </header>
+
+      <main class="room-grid">
+        <section class="stage-cell">
+          <div class="stage-row">
+            <div class="player-shell" id="player-shell">
+              <div id="stage-idle" class="stage-idle">
+                <h3 id="idle-title">The screen is off</h3>
+                <p id="idle-copy">Paste a YouTube link and press play — it starts for everyone at the same moment.</p>
+                <form id="empty-form" class="paste-row">
+                  <input id="empty-url" class="field" placeholder="https://youtube.com/watch?v=…" autocomplete="off" spellcheck="false" />
+                  <button class="btn solid" type="submit">Play it</button>
+                </form>
+                <p class="how" style="color:var(--faint); font-size:11.5px; letter-spacing:.05em">try: movie clip · music video · series trailer</p>
+              </div>
+              <div id="player"></div>
+              <button id="shield" class="shield hidden" type="button" title="Playback is controlled by the host"></button>
+              <div id="overlays" class="overlays"></div>
+              <div id="slug" class="slug hidden">
+                <span class="who" id="slug-who"></span>
+                <span class="txt" id="slug-txt"></span>
+                <span class="up">↑</span>
+              </div>
+              <button id="cue" class="cue hidden" type="button">
+                <span class="orb">▶</span>
+                <span>TAP TO GET THE SOUND</span>
+                <small>you're watching muted — one tap unmutes in sync</small>
+              </button>
+              <button id="fs-fab" class="fs-fab" type="button" title="Chat">☰</button>
+              <div id="fs-hud" class="fs-hud"></div>
+            </div>
+          </div>
+          <footer class="controls-bar" id="controls-bar">
+            <button id="ctl-play" class="ctl icon host-only" type="button" title="Play/pause">▶</button>
+            <button id="ctl-back" class="ctl icon host-only" type="button" title="Back 10s">-10</button>
+            <button id="ctl-fwd" class="ctl icon host-only" type="button" title="Forward 10s">+10</button>
+            <button id="ctl-sync" class="ctl" type="button" title="Jump back in sync with the host">SYNC ME</button>
+            <button id="ctl-video" class="ctl host-only" type="button" title="Change the video">CHANGE VIDEO</button>
+            <span class="spacer"></span>
+            <span id="ctl-state" class="ctl-state">--:-- / --:--</span>
+            <button id="ctl-fs" class="ctl icon" type="button" title="Fullscreen">⛶</button>
+            <button id="ctl-share" class="ctl" type="button" title="Share room">SHARE</button>
+          </footer>
+        </section>
+
+        <aside class="side" id="sidebar">
+          <header class="side-head">LIVE CHAT <span class="count" id="side-count">1</span></header>
+          <div id="react-ticker" class="react-ticker"><span class="hint">REACTIONS LAND HERE</span></div>
+          <div id="chat-feed" class="chat-feed"></div>
+          <div id="gif-panel" class="gif-panel hidden">
+            <div class="tags" id="gif-tags"></div>
+            <div class="gif-grid" id="gif-grid"><div class="empty">PICK A MOOD ABOVE</div></div>
+          </div>
+          <div class="composer" id="composer">
+            <button id="btn-emoji" class="icon-btn" type="button" title="Reactions">☺</button>
+            <button id="btn-gif" class="icon-btn gif-btn" type="button" title="GIFs">GIF</button>
+            <input id="chat-input" maxlength="500" placeholder="Message the room…" autocomplete="off" />
+            <button id="send-btn" class="btn solid" type="button">Send</button>
+            <div id="emoji-panel" class="emoji-panel"></div>
+          </div>
+          <footer class="viewers" id="viewers-box">
+            <h4>VIEWERS</h4>
+            <div id="viewers-list"></div>
+          </footer>
+        </aside>
+      </main>
+    </section>
+
+    <div class="modal-back" id="modal-share">
+      <div class="sheet">
+        <button class="x" type="button" data-close="modal-share">✕</button>
+        <h3>Invite the room</h3>
+        <p class="sub">Send the link — or double-check the code and have them enter it.</p>
+        <div class="big-code" id="share-code">——————</div>
+        <div class="link-row">
+          <input id="share-link" class="field" readonly />
+          <button id="share-copy" class="btn solid" type="button">Copy</button>
+        </div>
+        <div class="row2">
+          <button id="share-native" class="btn" type="button">Share…</button>
+          <button id="share-close" class="btn ghost" type="button" data-close="modal-share">Done</button>
+        </div>
+        <p class="hint">ANYONE WITH THE LINK CAN JOIN — UNTIL THE HOST CLOSES THE TAB.</p>
+      </div>
+    </div>
+
+    <div class="modal-back" id="modal-video">
+      <div class="sheet">
+        <button class="x" type="button" data-close="modal-video">✕</button>
+        <h3>Change the video</h3>
+        <p class="sub">Paste any YouTube link. Everyone jumps to it at the same moment — from the start.</p>
+        <form id="video-form">
+          <div class="link-row">
+            <input id="video-url" class="field" placeholder="https://youtube.com/watch?v=…" autocomplete="off" spellcheck="false" />
+            <button class="btn solid" type="submit">Play it</button>
+          </div>
+        </form>
+        <p class="hint">YOUTUBE ONLY FOR NOW · VIMEO &amp; CO WANT A DIFFERENT ENGINE.</p>
+      </div>
+    </div>
+
+    <noscript><div style="padding:18px;font-family:var(--font-head)">WATCH// needs JavaScript to exist. That's the whole deal.</div></noscript>
+    <script>
+      import { boot } from '../scripts/app';
+      boot();
+    </script>
+  </body>
+</html>
