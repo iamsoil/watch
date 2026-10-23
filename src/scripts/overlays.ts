@@ -55,8 +55,14 @@ export function spawnReaction(emoji: string) {
   ov.textContent = emoji;
 }
 
+let slugTimer: number | null = null;
+
 export function setSlug(who: string | null, txt: string) {
   const slug = document.getElementById('slug')!;
+  if (slugTimer !== null) {
+    window.clearTimeout(slugTimer);
+    slugTimer = null;
+  }
   if (!who) {
     slug.classList.add('hidden');
     return;
@@ -64,4 +70,8 @@ export function setSlug(who: string | null, txt: string) {
   document.getElementById('slug-who')!.textContent = who + ':';
   document.getElementById('slug-txt')!.textContent = txt;
   slug.classList.remove('hidden');
+  slugTimer = window.setTimeout(() => {
+    slug.classList.add('hidden');
+    slugTimer = null;
+  }, 7200);
 }

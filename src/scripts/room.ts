@@ -23,7 +23,6 @@ let uiClock: number | null = null;
 let viewers: Viewer[] = [];
 let hostless = true;
 let deadSoon = false;
-let soleSlugName: string | null = null;
 
 function expectedPosition(p: Playback): number {
   if (p.state !== 'playing') return p.position;
@@ -151,14 +150,12 @@ function onMessage(m: AnyMsg) {
     case 'chat': {
       addChatLine(m.fromName, m.text, m.fromId, false);
       O.spawnMessage(m.fromName, m.text);
-      soleSlugName = m.fromName;
       O.setSlug(m.fromName, m.text);
       break;
     }
     case 'gif': {
       addGifLine(m.fromName, m.url, m.fromId, false);
       O.spawnGif(m.url);
-      soleSlugName = m.fromName;
       O.setSlug(m.fromName, 'floated a GIF');
       break;
     }
@@ -310,9 +307,7 @@ function uiTick() {
   const cur = safeTime();
   const dur = (() => { try { return yt.getDuration?.() || 0; } catch { return 0; } })();
   byId('ctl-state').textContent = fmt(cur) + ' / ' + (dur ? fmt(dur) : '--:--');
-  if (role === 'host') {
-    if (safeState() === 1 && !byId('cue').classList.contains('hidden') && userUnmuted) showCueIfMuted(false);
-  }
+  if (role === 'host' && safeState() === 1 && !byId('cue').classList.contains('hidden')) showCueIfMuted(true);
   if (role === 'guest' && lastPlayback && lastPlayback.state === 'playing') {
     const want = expectedPosition(lastPlayback);
     if (Math.abs(safeTime() - want) > 1.9) syncYt();
@@ -348,10 +343,28 @@ export function wireControls() {
   byId('topbar-share').addEventListener('click', () => openModal('modal-share'));
   byId('ctl-fs').addEventListener('click', toggleFs);
   byId('code-chip').addEventListener('click', () => {
+    if (!roomCode) { toast('No room yet', 'warn'); return; }
     copyText(roomCode + '  —  ' + window.location.origin + '/r/' + roomCode);
     toast('Room code + link copied', 'violet');
   });
   byId('cue').addEventListener('click', unmuteFromCue);
+  byId('share-copy').addEventListener('click', () => {
+    copyText((byId('share-link') as HTMLInputElement).value);
+    toast('Invite link copied', 'violet');
+    closeModal('modal-share');
+  });
+  byId('share-native').addEventListener('click', async () => {
+    const link = (byId('share-link') as HTMLInputElement).value;
+    const nav = navigator as any;
+    if (nav.share) {
+      try { await nav.share({ title: 'WATCH// room', text: 'Join my watch room #' + roomCode, url: link }); }
+      catch { /* user dismissed */ }
+    } else {
+      copyText(link);
+      toast('Native share not available — link copied instead', 'violet');
+    }
+    closeModal('modal-share');
+  });
   byId('shield').addEventListener('click', () => {
     toast('Playback is on the host', 'warn');
   });
@@ -374,6 +387,11 @@ export function wireControls() {
   });
   document.addEventListener('fullscreenchange', onFsChange);
   document.addEventListener('webkitfullscreenchange', onFsChange as EventListener);
+  document.addEventListener('click', (e) => {
+    if (!(e.target as HTMLElement).closest('.vrow')) {
+      document.querySelectorAll('.mod-pop').forEach((p) => p.remove());
+    }
+  });
   byId('fs-fab').addEventListener('click', () => {
     const hud = byId('fs-hud');
     hud.classList.toggle('open');
@@ -410,7 +428,7 @@ function updatePlayIcon() {
 }
 
 function updateIdleState() {
-  const hasVideo = !!lastPlayback?.videoId && mountedVideoId !== null;
+  const hasVideo = !!lastPlayback?.videoId && (mountedVideoId !== null || !!yt);
   byId('stage-idle').classList.toggle('hidden', hasVideo);
   if (!hasVideo) {
     byId('empty-form').classList.toggle('hidden', role !== 'host');
@@ -754,7 +772,17 @@ function buildEmojiPanel() {
   });
 }
 
-function openModal(id: string) { byId(id).classList.add('open'); }
+function openModal(id: string) {
+  const m = byId(id);
+  m.classList.add('open');
+  const f = m.querySelector('input') as HTMLInputElement | null;
+  if (f) {
+    window.setTimeout(() => {
+      f.focus();
+      try { f.select(); } catch { /* not selectable */ }
+    }, 40);
+  }
+}
 function closeModal(id: string) { byId(id).classList.remove('open'); }
 function closeAllModals() { document.querySelectorAll('.modal-back.open').forEach((m) => m.classList.remove('open')); }
 
