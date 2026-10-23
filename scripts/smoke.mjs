@@ -174,6 +174,24 @@ async function main() {
   const takeover = await g3.wait('joined', 2500);
   check(takeover.you.role === 'host', 'first joiner of a hostless room takes over as host', takeover.you);
 
+  const hRe = new Mini();
+  await hRe.open();
+  hRe.send({ t: 'join', code: CODE, name: 'Host', asHost: true });
+  const demoted = await hRe.wait('joined', 2500);
+  check(demoted.you.role === 'guest', 'host reconnect with asHost stays viewer while deck is taken', demoted.you);
+  const infoMsg = await hRe.wait('info', 2000).catch(() => null);
+  check(!!infoMsg && String(infoMsg.msg).includes('deck'), 'demoted host gets an explanatory info', infoMsg);
+
+  await new Promise(r => setTimeout(r, 150));
+  g3.ws.close(1000);
+  hRe.ws.close(1000);
+  const hRe2 = new Mini();
+  await hRe2.open();
+  hRe2.send({ t: 'join', code: CODE, name: 'Host', asHost: true });
+  const reclaim = await hRe2.wait('joined', 2500);
+  check(reclaim.you.role === 'host', 'previous host re-claims deck right after reconnect', reclaim.you);
+  check(reclaim.playback.videoId === 'qzk_xlryzAm', 'playback videoId survives host churn', reclaim.playback);
+
   const h4 = new Mini();
   await h4.open();
   h4.send({ t: 'create', name: 'Fresh' });

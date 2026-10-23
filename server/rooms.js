@@ -240,6 +240,7 @@ export class Hub {
       room.sys(n + ' took over the room as host.');
       this.broadcast(room, 'presence', { kind: 'host-back', name: n });
     } else {
+      if (asHost) this.send(c.ws, 'info', { msg: 'Someone else already has the deck — you are back as a viewer.' });
       room.sys(n + ' joined. Say hi!');
       this.broadcast(room, 'presence', { kind: 'joined', name: n });
     }

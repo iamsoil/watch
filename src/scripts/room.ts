@@ -23,6 +23,7 @@ let uiClock: number | null = null;
 let viewers: Viewer[] = [];
 let hostless = true;
 let deadSoon = false;
+let hasJoined = false;
 
 function expectedPosition(p: Playback): number {
   if (p.state !== 'playing') return p.position;
@@ -67,7 +68,13 @@ export function initRoom(mode: 'create' | 'join', name: string, code: string) {
   document.body.dataset.role = 'guest';
   conn = new Conn();
   conn.onOpen = () => {
-    conn?.send(mode === 'create' ? { t: 'create', name } : { t: 'join', code, name });
+    if (hasJoined && (roomCode || code)) {
+      conn?.send({ t: 'join', code: roomCode || code, name: me.name || name, asHost: role === 'host' });
+    } else if (mode === 'create') {
+      conn?.send({ t: 'create', name });
+    } else {
+      conn?.send({ t: 'join', code, name, asHost: false });
+    }
   };
   conn.onMsg = onMessage;
   conn.onClose = (retry) => {
@@ -98,8 +105,10 @@ function onMessage(m: AnyMsg) {
     case 'created':
     case 'joined': {
       connBanner(false);
+      const wasHost = role === 'host' && hasJoined;
       role = m.you.role === 'host' ? 'host' : 'guest';
       me = m.you;
+      hasJoined = true;
       roomCode = m.code;
       document.body.dataset.role = role;
       viewers = m.viewers || [];
@@ -111,7 +120,8 @@ function onMessage(m: AnyMsg) {
       if (m.t === 'joined') {
         renderHistory(m.history || []);
         window.history.replaceState(null, '', '/r/' + roomCode);
-        toast('You are in room #' + roomCode, 'violet');
+        if (wasHost && role === 'guest') toast('The room moved on without you — you are back as a viewer', 'warn');
+        else toast('You are in room #' + roomCode, 'violet');
       } else {
         addSys('Room born. Paste a video and share the code.');
         window.history.replaceState(null, '', '/r/' + roomCode);
