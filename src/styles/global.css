@@ -853,21 +853,22 @@ body[data-role='guest'] .host-only { display: none !important; }
 .fs-hud {
   position: absolute;
   right: 0;
-  top: 0;
-  height: 100%;
+  top: 50%;
+  height: min(640px, calc(100dvh - 60px));
   width: min(380px, calc(100vw - 44px));
   display: flex;
   z-index: 14;
-  border-left: 1px solid var(--line-2);
+  border: 1px solid var(--line-2);
+  border-right: none;
   box-shadow: -24px 0 70px rgba(0, 0, 0, 0.65);
   background: rgba(10, 8, 17, 0.92);
   backdrop-filter: blur(12px);
-  transform: translateX(102%);
+  transform: translateX(102%) translateY(-50%);
   transition: transform 0.22s ease, visibility 0.22s;
   pointer-events: none;
   visibility: hidden;
 }
-.fs-hud.open { transform: none; pointer-events: auto; visibility: visible; }
+.fs-hud.open { transform: translateY(-50%); pointer-events: auto; visibility: visible; }
 .fs-hud .side { border-left: none; width: 100%; height: 100%; background: transparent; }
 .fs-hud .side-head { padding-right: 54px; }
 .fs-close {
