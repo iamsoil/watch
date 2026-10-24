@@ -101,6 +101,11 @@ function leavePage(msg: string) {
 }
 
 function onMessage(m: AnyMsg) {
+  try {
+    const ml = ((window as any).__msgLog ||= []);
+    ml.push(m.t + (m.t === 'playback' ? ':' + m.state + ':' + m.videoId : m.t === 'joined' || m.t === 'created' ? ':p=' + (m.playback && m.playback.state) : ''));
+    if (ml.length > 30) ml.splice(0, ml.length - 30);
+  } catch { /* debug aid */ }
   switch (m.t) {
     case 'created':
     case 'joined': {
@@ -176,7 +181,17 @@ function onMessage(m: AnyMsg) {
       break;
     }
     case 'playback': {
-      applyPlaybackState(m as unknown as Playback);
+      const p = m as unknown as Playback;
+      if (role === 'host') {
+        // The host is the clock: never re-apply transport state from a server echo
+        // (that would fight the host's own player), but DO mount a newly chosen videoId.
+        if (p.videoId && p.videoId !== mountedVideoId) {
+          lastPlayback = p;
+          mountPlayer(p);
+        }
+        break;
+      }
+      applyPlaybackState(p);
       break;
     }
     case 'sync-request':
@@ -236,6 +251,7 @@ function mountPlayer(p: Playback) {
       yt = new YT.Player('player', {
         width: '100%',
         height: '100%',
+        host: 'https://www.youtube.com',
         playerVars: {
           autoplay: 1,
           mute: 1,
@@ -249,6 +265,7 @@ function mountPlayer(p: Playback) {
           onStateChange: (e: any) => { onYtState(e.data); },
         },
       });
+      (window as any).__watchYt = yt;
     } else {
       startVideo(p);
     }
@@ -275,7 +292,7 @@ function syncYt() {
   const cur = safeState();
   if (p.state === 'playing') {
     const want = expectedPosition(p);
-    if (Math.abs(safeTime() - want) > 1.7) {
+    if (cur === 1 && Math.abs(safeTime() - want) > 1.7) {
       try { yt.seekTo(want, true); } catch { /* mid-load */ }
     }
     if (cur !== 1 && cur !== 3) { try { yt.playVideo(); } catch { /* blocked */ } }
@@ -286,8 +303,17 @@ function syncYt() {
 }
 
 let lastEmit = 0;
+let lastPlayRetry = 0;
+let bgSelfPause = false;
 function onYtState(state: number) {
   updatePlayIcon();
+  if (state === 2 && (typeof document !== 'undefined' && document.hidden)) {
+    // The browser paused YT because our tab is backgrounded. That is NOT a host
+    // decision — broadcasting it would pause the room for everyone.
+    bgSelfPause = true;
+    return;
+  }
+  if (state === 1) bgSelfPause = false;
   if (role !== 'host') return;
   if (state === 1 || state === 2) {
     const now = Date.now();
@@ -299,6 +325,8 @@ function emitPlayback() {
   if (role !== 'host' || !mountedVideoId || !conn) return;
   const st = safeState();
   if (st !== 1 && st !== 2) return;
+  // Never let a background-tab auto-pause become a room-wide pause.
+  if (st === 2 && typeof document !== 'undefined' && document.hidden) { bgSelfPause = true; return; }
   conn.send({
     t: 'playback',
     videoId: mountedVideoId,
@@ -320,12 +348,23 @@ function uiTick() {
   if (role === 'host' && safeState() === 1 && !byId('cue').classList.contains('hidden')) showCueIfMuted(true);
   if (role === 'guest' && lastPlayback && lastPlayback.state === 'playing') {
     const want = expectedPosition(lastPlayback);
-    if (Math.abs(safeTime() - want) > 1.9) syncYt();
+    const st = safeState();
+    if ((st === 5 || st === -1) && Date.now() - lastPlayRetry > 1500) {
+      lastPlayRetry = Date.now();
+      try { yt.playVideo(); } catch { /* blocked */ }
+    }
+    if (st === 1 && Math.abs(safeTime() - want) > 1.9) syncYt();
+    if (st !== 1) showCueIfMuted(true);
   }
 }
 
 function showCueIfMuted(playing: boolean) {
   const cue = byId('cue');
+  try {
+    const log = ((window as any).__cueLog ||= []);
+    log.push(Date.now() % 100000, playing, userUnmuted);
+    if (log.length > 30) log.splice(0, log.length - 30);
+  } catch { /* debug aid */ }
   userUnmuted = ((): boolean => { try { return !yt?.isMuted?.(); } catch { return userUnmuted; } })();
   cue.classList.toggle('hidden', !(playing && !userUnmuted));
 }
@@ -358,6 +397,14 @@ export function wireControls() {
     toast('Room code + link copied', 'violet');
   });
   byId('cue').addEventListener('click', unmuteFromCue);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    if (role !== 'host' || !bgSelfPause) return;
+    bgSelfPause = false;
+    try { yt?.playVideo(); } catch { /* blocked */ }
+    setTimeout(() => { try { emitPlayback(); } catch { /* ok */ } }, 400);
+    toast('Back on screen — resuming for everyone', 'violet');
+  });
   byId('share-copy').addEventListener('click', () => {
     copyText((byId('share-link') as HTMLInputElement).value);
     toast('Invite link copied', 'violet');
@@ -376,6 +423,11 @@ export function wireControls() {
     closeModal('modal-share');
   });
   byId('shield').addEventListener('click', () => {
+    if (!userUnmuted) {
+      unmuteFromCue();
+      toast('Sound on — playback follows the host', 'violet');
+      return;
+    }
     toast('Playback is on the host', 'warn');
   });
   byId('empty-form').addEventListener('submit', (e) => {
@@ -433,7 +485,16 @@ function seekRel(delta: number) {
 
 function unmuteFromCue() {
   userUnmuted = true;
-  try { yt.unMute(); yt.setVolume(95); if (safeState() !== 1) yt.playVideo(); } catch { /* ok */ }
+  const at = Math.max(0, Math.floor(safeTime()));
+  try {
+    yt.unMute();
+    yt.setVolume(95);
+    try {
+      yt.loadVideoById(mountedVideoId, at);
+    } catch {
+      if (safeState() !== 1) { try { yt.playVideo(); } catch { /* best effort */ } }
+    }
+  } catch { /* ok */ }
   byId('cue').classList.add('hidden');
 }
 
